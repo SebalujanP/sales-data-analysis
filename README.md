@@ -1,6 +1,5 @@
 # 📊 Análisis de Ventas de Tienda Online & Dashboard Interactivo
-
-![Streamlit App](https://sales-data-analysis-kkobbplgfvwcyxwpan458v.streamlit.app)
+[![Streamlit App](https://img.shields.io/badge/Ver_Dashboard_en_Vivo-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://sales-data-analysis-kkobbplgfvwcyxwpan458v.streamlit.app/)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
 ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg)
