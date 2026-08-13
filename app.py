@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 st.set_page_config(
-    page_title="Análisis de Ventas",
+    page_title="Análisis de Ventas & Rentabilidad",
     page_icon="📊",
     layout="wide"
 )
@@ -36,6 +37,17 @@ def cargar_datos():
 
 df = cargar_datos()
 
+# Función formateadora de moneda para ejes Y ($100k, $1.2M, etc.)
+def fmt_moneda(x, pos):
+    if abs(x) >= 1e6:
+        return f'${x*1e-6:.1f}M'
+    elif abs(x) >= 1e3:
+        return f'${x*1e-3:.0f}k'
+    else:
+        return f'${x:.0f}'
+
+formatter = ticker.FuncFormatter(fmt_moneda)
+
 # Sidebar filtros
 st.sidebar.header("🔍 Filtros")
 categorias = ["Todas"] + list(df['Categoria'].unique())
@@ -56,17 +68,27 @@ if region_sel != "Todas":
 if año_sel != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Año'] == año_sel]
 
-# KPIs
+# Cálculos de KPIs
+ventas_tot = df_filtrado['Ventas'].sum()
+ganancia_tot = df_filtrado['Ganancia'].sum()
+margen_pct = (ganancia_tot / ventas_tot * 100) if ventas_tot > 0 else 0
+total_pedidos = df_filtrado['ID_Pedido'].count()
+ventas_perdida = (df_filtrado['Ganancia'] < 0).sum()
+pct_perdida = (ventas_perdida / total_pedidos * 100) if total_pedidos > 0 else 0
+
+# KPIs Generales (5 Columnas)
 st.subheader("📈 KPIs Generales")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Ventas Totales", f"${df_filtrado['Ventas'].sum():,.0f}")
-col2.metric("Ganancia Total", f"${df_filtrado['Ganancia'].sum():,.0f}")
-col3.metric("Pedidos", f"{df_filtrado['ID_Pedido'].count():,}")
-col4.metric("Ventas con Pérdida", f"{(df_filtrado['Ganancia'] < 0).sum():,}")
+col1, col2, col3, col4, col5 = st.columns(5)
+
+col1.metric("Ventas Totales", f"${ventas_tot:,.0f}")
+col2.metric("Ganancia Total", f"${ganancia_tot:,.0f}")
+col3.metric("Margen de Ganancia", f"{margen_pct:.1f}%")
+col4.metric("Pedidos Totales", f"{total_pedidos:,}")
+col5.metric("Ventas con Pérdida", f"{ventas_perdida:,}", f"{pct_perdida:.1f}% del total", delta_color="inverse")
 
 st.markdown("---")
 
-# Graficos fila 1
+# Fila 1: Categorías
 col1, col2 = st.columns(2)
 
 with col1:
@@ -76,7 +98,9 @@ with col1:
     ax.bar(ventas_cat.index, ventas_cat.values, color='steelblue')
     ax.set_xlabel("Categoría")
     ax.set_ylabel("Ventas")
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close()
 
@@ -84,17 +108,20 @@ with col2:
     st.subheader("Ganancias por Categoría")
     gan_cat = df_filtrado.groupby('Categoria')['Ganancia'].sum().sort_values(ascending=False)
     fig, ax = plt.subplots(figsize=(6, 4))
-    colors = ['red' if v < 0 else 'steelblue' for v in gan_cat.values]
+    colors = ['#d9534f' if v < 0 else 'steelblue' for v in gan_cat.values]
     ax.bar(gan_cat.index, gan_cat.values, color=colors)
+    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
     ax.set_xlabel("Categoría")
     ax.set_ylabel("Ganancia")
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close()
 
 st.markdown("---")
 
-# Graficos fila 2
+# Fila 2: Subcategorías y Estacionalidad
 col1, col2 = st.columns(2)
 
 with col1:
@@ -104,6 +131,7 @@ with col1:
     ax.bar(subcat_v.index, subcat_v.values, color='steelblue')
     ax.set_xlabel("Subcategoría")
     ax.set_ylabel("Ventas")
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     plt.xticks(rotation=35, ha='right')
     plt.tight_layout()
@@ -118,13 +146,15 @@ with col2:
     ax.set_xlabel("Mes")
     ax.set_ylabel("Ventas")
     ax.set_xticks(range(1, 13))
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
+    plt.tight_layout()
     st.pyplot(fig)
     plt.close()
 
 st.markdown("---")
 
-# Graficos fila 3
+# Fila 3: Región y Descuentos
 col1, col2 = st.columns(2)
 
 with col1:
@@ -134,6 +164,7 @@ with col1:
     ax.bar(ventas_reg.index, ventas_reg.values, color='steelblue')
     ax.set_xlabel("Región")
     ax.set_ylabel("Ventas")
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     plt.xticks(rotation=25, ha='right')
     plt.tight_layout()
@@ -144,12 +175,14 @@ with col2:
     st.subheader("Impacto de Descuentos en Ganancia")
     desc_gan = df_filtrado.groupby('Descuento')['Ganancia'].sum()
     fig, ax = plt.subplots(figsize=(6, 4))
-    colors = ['red' if v < 0 else 'steelblue' for v in desc_gan.values]
+    colors = ['#d9534f' if v < 0 else 'steelblue' for v in desc_gan.values]
     ax.bar(range(len(desc_gan)), desc_gan.values, width=0.6, color=colors)
+    ax.axhline(0, color='black', linewidth=0.8, linestyle='--')
     ax.set_xticks(range(len(desc_gan)))
-    ax.set_xticklabels([f"{x:.2f}" for x in desc_gan.index], rotation=45)
-    ax.set_xlabel("Descuento")
-    ax.set_ylabel("Ganancia")
+    ax.set_xticklabels([f"{x*100:.0f}%" for x in desc_gan.index], rotation=45)
+    ax.set_xlabel("Nivel de Descuento Applied")
+    ax.set_ylabel("Ganancia Total")
+    ax.yaxis.set_major_formatter(formatter)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     plt.tight_layout()
     st.pyplot(fig)
@@ -160,10 +193,10 @@ st.markdown("---")
 # Conclusiones
 st.subheader("💡 Conclusiones y Recomendaciones")
 st.markdown("""
-- **Descuentos del 30%+ generan pérdidas** — Se recomienda limitar los descuentos máximos al 20%.
-- **El 18.6% de las transacciones tuvieron ganancia negativa** — 1.901 ventas con pérdida detectadas.
-- **Alto volumen no garantiza rentabilidad** — Algunas subcategorías venden mucho pero aportan poco margen.
-- **Revisar condiciones de clientes de alto volumen** — Algunos compran mucho pero generan baja ganancia.
+- **Descuentos del 30%+ generan pérdidas** — Se recomienda limitar los descuentos máximos al 20%-25%.
+- **El 18.6% de las transacciones tuvieron ganancia negativa** — Se detectaron 1.901 ventas con margen negativo acumulado.
+- **Alto volumen no garantiza rentabilidad** — Ciertas subcategorías aportan gran facturación pero reducen el margen neto.
+- **Revisión de políticas comerciales** — Es clave auditar las reglas de acumulación de promociones en el checkout.
 """)
 
 st.markdown("---")
